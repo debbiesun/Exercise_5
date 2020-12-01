@@ -131,7 +131,44 @@ ggplotly(topfive)
 
 ```{r}
 
+trains <- small_trains %>% 
+  filter(year == "2017")%>%
+  group_by(month,departure_station) %>% 
+  summarize(total = sum(total_num_trips))%>%
+  top_n(wt=departure_station,n=10)%>%
+  arrange(month, total) %>% 
+  mutate(rank = 1:n()) %>% 
+  ggplot(aes(x = total,
+             y = factor(rank),
+             fill = departure_station,
+             group = departure_station)) +
+  geom_col() +
+  geom_text(aes(label = departure_station),
+            x = -10,
+            hjust = "right") +
+  labs(title = "Number of Trips of the most popular stations",
+       subtitle = "Month: {frame_time}",
+       x = "", 
+       y = "") +
+  theme(axis.line = element_blank(), 
+        panel.grid = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none") +
+  scale_fill_viridis_d() +
+  transition_time(month)
+
+animate(trains, renderer = gifski_renderer())
+
+anim_save("trains.gif")
 ```
+
+
+```{r, echo=FALSE}
+knitr::include_graphics("trains.gif")
+```  
+
+
+My question is to see the if there is a pattern for the total number of trips for each station in each month in 2017. It seems that there are more trips in winter than the summer.
 
 ## Garden data
 
@@ -405,11 +442,64 @@ knitr::include_graphics("covid.gif")
   
   7. In this exercise you will animate a map of the US, showing how cumulative COVID-19 cases per 10,000 residents has changed over time. This is similar to exercises 11 & 12 from the previous exercises, with the added animation! So, in the end, you should have something like the static map you made there, but animated over all the days. Put date in the subtitle. Comment on what you see.
   
+```{r}
+census_pop_est_2018 <- read_csv("https://www.dropbox.com/s/6txwv3b4ng7pepe/us_census_2018_state_pop_est.csv?dl=1") %>% 
+  separate(state, into = c("dot","state"), extra = "merge") %>% 
+  select(-dot) %>% 
+  mutate(state = str_to_lower(state))
+
+recent <- covid19%>%
+    mutate(state = str_to_lower(state))
+
+covid_with_ppl <-recent %>% 
+  left_join(census_pop_est_2018,
+            by = "state") %>% 
+  mutate(cases_per_10000 = (cases/est_pop_2018)*10000)
+
+state_map <- map_data("state")
+```
+
+
+
+
+```{r}
+covid_with_ppl%>%
+  ggplot() +
+  geom_map(map = state_map,
+           aes(map_id = state,
+               fill = cases_per_10000)) +
+  expand_limits(x = state_map$long, y = state_map$lat) + 
+  theme_map()+
+  labs(title = "Covid Cases",
+       subtitle = "Date: {frame_time}",
+       x = "", 
+       y = "") +
+  theme(axis.line = element_blank(), 
+        panel.grid = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none")+
+      scale_fill_viridis_d()+
+      transition_reveal(date)
+```
+  
+  
   
 
 ## Your first `shiny` app
 
   8. This app will also use the COVID data. Make sure you load that data and all the libraries you need in the `app.R` file you create. Below, you will post a link to the app that you publish on shinyapps.io. You will create an app to compare states' cumulative number of COVID cases over time. The x-axis will be number of days since 20+ cases and the y-axis will be cumulative cases on the log scale (`scale_y_log10()`). We use number of days since 20+ cases on the x-axis so we can make better comparisons of the curve trajectories. You will have an input box where the user can choose which states to compare (`selectInput()`) and have a submit button to click once the user has chosen all states they're interested in comparing. The graph should display a different line for each state, with labels either on the graph or in a legend. Color can be used if needed. 
+  
+  
+```{r}
+cases <- covid19%>%
+  group_by(state)%>%
+  filter(cases>20,.keep_all = TRUE)%>%
+  mutate(early =  min(date))%>%
+  mutate(days = date-early)
+
+
+```
+  
   
 ## GitHub link
 
